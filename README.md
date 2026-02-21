@@ -1,12 +1,16 @@
-# Paper LLM Gateway (OpenAI-Compatible)
+# Paper Lens Studio
 
-一个面向论文解读的后端接口示例，支持：
-- 使用 `api_key + base_url + model` 动态切换大模型服务商（OpenAI 协议）。
-- 上传 PDF 后，按多个角度进行分析（主题、方法、创新点、局限性等）。
-- 返回每个角度结果与最终融合报告，便于前端展示。
+一个面向论文解读的全栈应用，包含 React 现代化前端与 FastAPI 高性能后端：
+- **React 18 前端**：小清新风格 UI，支持单篇 / 多篇论文并行流式分析，模型配置浮层
+- **多模型支持**：使用 `api_key + base_url + model` 动态切换大模型服务商（OpenAI 协议）
+- **多角度分析**：上传 PDF 后按多个可自定义角度分析，返回角度结果与最终融合报告
+- **流式输出**：SSE 实时流式展示，支持多篇论文并行分析
+
+> 详细前端使用文档：[docs/frontend.md](docs/frontend.md)
 
 ## 📋 目录
 
+- [界面预览](#界面预览)
 - [功能特性](#功能特性)
 - [快速开始](#快速开始)
 - [项目结构](#项目结构)
@@ -16,17 +20,48 @@
 - [开发指南](#开发指南)
 - [常见问题](#常见问题)
 
+## 🖼️ 界面预览
+
+### 主界面
+
+左侧为配置区域（上传 + 角度配置 + 参数），右侧为流式输出区域。
+
+![主界面](docs/screenshots/01-main-ui.png)
+
+### 模型配置浮层
+
+点击左上角 ⚙ 按钮，在浮层中选择服务商、填写 API Key，支持保存多套配置。
+
+![设置浮层](docs/screenshots/03-settings-drawer.png)
+
+### 多篇论文并行分析
+
+上传多篇论文后，右侧顶部出现论文 Tab 栏（含实时状态指示），每篇论文内部有角度 Tab 栏。
+
+![多篇论文输出](docs/screenshots/04-multi-paper-output.png)
+
 ## ✨ 功能特性
 
-### 核心功能
+### 前端特性
+- ✅ **React 18 + Vite**：现代化 SPA，热重载开发体验
+- ✅ **小清新设计**：薄荷绿配色、柔和阴影、圆角卡片风格
+- ✅ **模型配置浮层**：左上角 ⚙ 弹出，支持多套配置保存与切换
+- ✅ **多篇并行分析**：多论文同时流式输出，双层 Tab 导航（论文 Tab + 角度 Tab）
+- ✅ **实时状态指示**：Tab 上显示分析进度（⟳ 分析中 / ✓ 完成 / ✕ 出错）
+- ✅ **深度思考模式**：可展示 Reasoning 模型的思考过程
+- ✅ **Markdown 渲染**：流式内容实时 Markdown 渲染，DOMPurify 安全净化
+
+### 后端核心功能
 - ✅ **多模型支持**：支持 OpenAI 兼容协议的任意模型服务商（OpenAI、OpenRouter、Groq、豆包、智谱等）
 - ✅ **多角度分析**：可自定义分析角度，从多个维度深入解读论文
-- ✅ **流式输出**：支持实时流式输出分析结果，提升用户体验
+- ✅ **批量并行分析**：支持一次上传多篇论文并并发处理
+- ✅ **流式输出**：SSE 实时流式输出分析结果
 - ✅ **Provider 管理**：持久化存储模型配置，支持 CRUD 操作
 - ✅ **目录同步**：自动同步 Provider 目录，支持定时和手动触发
 - ✅ **健康检查**：提供完整的健康检查和验证工具
 
 ### 技术特点
+- ⚛️ **React 18 + Vite 5**：现代化前端构建栈
 - 🚀 **FastAPI**：高性能异步 Web 框架
 - 📦 **Docker 支持**：一键部署，容器化运行
 - 🔒 **环境变量管理**：安全的配置管理
@@ -38,6 +73,7 @@
 ### 环境要求
 
 - Python 3.8+
+- Node.js 18+（前端开发 / 构建）
 - pip 或 conda
 - （可选）Docker 和 Docker Compose
 
@@ -85,20 +121,39 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 
 ### 4. 启动服务
 
-#### 方式一：本地开发模式
+#### 方式一：本地开发模式（推荐）
+
+**启动后端：**
 
 ```bash
-# Terminal 1: 启动后端服务
+# Terminal 1
 python run_server.py
-
-# Terminal 2: 启动前端服务（可选）
-python run_frontend.py
 ```
 
+**启动前端（React 开发服务器，热重载）：**
+
+```bash
+# Terminal 2
+cd frontend
+npm install   # 首次执行
+npm run dev   # 端口 43118
+```
+
+浏览器访问 `http://localhost:43118`，前端会自动将 `/v1/*`、`/health` 代理到后端 43117。
+
 服务地址：
+- 前端界面（开发）：`http://127.0.0.1:43118`
 - 后端 API：`http://127.0.0.1:43117`
-- 前端界面：`http://127.0.0.1:43118`
 - API 文档：`http://127.0.0.1:43117/docs`（Swagger UI）
+
+**构建生产版本（将前端编译进 `web/`，由后端直接提供服务）：**
+
+```bash
+cd frontend
+npm run build   # 输出至 ../web/
+```
+
+构建后直接访问 `http://127.0.0.1:43117` 即可。
 
 #### 方式二：Docker 部署
 
@@ -119,7 +174,7 @@ python run_frontend.py
 
 ```
 read_paper_with_ai/
-├── app/                    # 应用核心代码
+├── app/                    # 后端核心代码（FastAPI）
 │   ├── __init__.py
 │   ├── main.py            # FastAPI 应用入口
 │   ├── config.py          # 配置管理
@@ -131,22 +186,42 @@ read_paper_with_ai/
 │   ├── provider_catalog.py # Provider 目录管理
 │   ├── catalog_sync.py     # 目录同步逻辑
 │   └── provider_store.py  # Provider 持久化存储
-├── web/                    # 前端静态文件
+├── frontend/               # 前端源码（React 18 + Vite）
+│   ├── index.html
+│   ├── vite.config.js     # Vite 配置（构建输出至 web/，代理 API）
+│   ├── package.json
+│   └── src/
+│       ├── main.jsx       # React 入口
+│       ├── App.jsx        # 根组件：全局状态 + 流式逻辑
+│       ├── styles.css     # 设计 Token + 全局样式
+│       ├── components/
+│       │   ├── Header.jsx
+│       │   ├── SettingsDrawer.jsx
+│       │   ├── LeftPanel.jsx
+│       │   ├── RightPanel.jsx
+│       │   ├── OutputArea.jsx
+│       │   ├── UploadZone.jsx
+│       │   └── AngleConfigList.jsx
+│       └── utils/
+│           ├── api.js     # fetch 封装
+│           └── markdown.js # marked + DOMPurify 渲染
+├── web/                    # 前端构建产物（由后端 StaticFiles 提供服务）
+├── docs/                   # 文档与截图
+│   ├── frontend.md        # 前端详细使用文档
+│   └── screenshots/       # UI 截图
 ├── scripts/                # 工具脚本
 │   ├── health_check.py    # 健康检查脚本
 │   ├── docker_deploy.sh   # Docker 部署脚本
 │   ├── docker_verify.sh   # Docker 验证脚本
 │   └── docker_down.sh     # Docker 停止脚本
 ├── data/                   # 数据目录（SQLite 数据库等）
-├── papers/                 # 论文文件存储目录（用户上传）
 ├── .env                    # 环境变量配置（不提交到 Git）
-├── .gitignore             # Git 忽略文件
+├── .gitignore
 ├── requirements.txt       # Python 依赖
-├── Dockerfile             # Docker 镜像构建文件
-├── docker-compose.yml     # Docker Compose 配置
+├── Dockerfile
+├── docker-compose.yml
 ├── run_server.py          # 后端启动脚本
-├── run_frontend.py        # 前端启动脚本
-└── README.md              # 项目文档
+└── README.md
 ```
 
 ## 📚 API 文档
@@ -270,6 +345,45 @@ data: {"type": "final_report", "content": "最终报告..."}
 **流式模式说明**：
 - `sequential`：逐个角度流式输出
 - `parallel`：并行角度流式输出（由 `parallel_limit` 控制并发上限）
+
+### 4.1 批量并行分析接口
+
+支持一次提交多篇 PDF，并并发完成分析。
+
+**请求**
+```http
+POST /v1/papers/analyze/batch
+Content-Type: multipart/form-data
+
+options_json: {
+  "provider_id": 1,
+  "angles": ["主题与研究问题", "方法论与实验设计"],
+  "parallel_limit": 3
+}
+files: <PDF文件1>
+files: <PDF文件2>
+...
+```
+
+**响应**
+```json
+{
+  "total": 2,
+  "succeeded": 2,
+  "failed": 0,
+  "items": [
+    {
+      "filename": "paper_a.pdf",
+      "ok": true,
+      "result": {
+        "paper_title": "Paper A",
+        "angles": [],
+        "final_report": "..."
+      }
+    }
+  ]
+}
+```
 
 ### 5. Provider 目录
 
@@ -457,7 +571,27 @@ docker-compose down
 
 ## 💻 开发指南
 
-### 代码结构说明
+### 前端开发
+
+```bash
+cd frontend
+
+# 安装依赖
+npm install
+
+# 开发模式（热重载，端口 43118）
+npm run dev
+
+# 生产构建（输出至 web/，后端直接服务）
+npm run build
+
+# 预览生产构建
+npm run preview
+```
+
+前端技术栈：React 18 + Vite 5 + marked + DOMPurify。详细说明参见 [docs/frontend.md](docs/frontend.md)。
+
+### 后端代码结构
 
 - **`app/main.py`**：FastAPI 应用主文件，定义所有路由
 - **`app/analyzer.py`**：论文分析核心逻辑，处理多角度分析
@@ -569,7 +703,6 @@ CATALOG_SYNC_INTERVAL_SECONDS=21600  # 6 小时
 - 🔄 将 PDF 全文切块并做检索增强（RAG）提升长论文稳定性
 - 🔄 支持模型路由策略（成本优先/质量优先）和调用审计日志
 - 🔄 添加用户认证和权限管理
-- 🔄 支持批量论文分析
 - 🔄 添加分析结果导出功能（PDF、Markdown 等）
 
 ## 📄 许可证

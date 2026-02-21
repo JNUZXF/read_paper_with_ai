@@ -98,6 +98,16 @@ async def index():
     return JSONResponse({"ok": True, "message": "Frontend not found. Put files into ./web"})
 
 
+@app.get("/batch")
+@app.get("/batch.html")
+async def batch_page():
+    # SPA: serve index.html for all frontend routes
+    page = STATIC_DIR / "index.html"
+    if page.exists():
+        return FileResponse(str(page))
+    raise HTTPException(status_code=404, detail="Frontend not found")
+
+
 @app.get("/health")
 async def health():
     return {"ok": True, "service": settings.app_name}
@@ -242,4 +252,63 @@ async def analyze_paper_stream_endpoint(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.post("/v1/papers/analyze/batch")
+async def analyze_paper_batch_endpoint(
+    options_json: str = Form(..., description="AnalyzeOptions 的 JSON 字符串"),
+    files: list[UploadFile] = File(..., description="论文 PDF 文件（可多选）"),
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="至少上传一个 PDF 文件。")
+
+    try:
+        options = _resolve_options(AnalyzeOptions.model_validate(json.loads(options_json)))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"options_json 解析失败: {exc}") from exc
+
+    semaphore = asyncio.Semaphore(options.parallel_limit)
+
+    async def analyze_single(upload: UploadFile) -> dict:
+        filename = upload.filename or "unknown.pdf"
+        if not filename.lower().endswith(".pdf"):
+            return {
+                "filename": filename,
+                "ok": False,
+                "error": "仅支持 PDF 文件。",
+            }
+        try:
+            raw = await upload.read()
+            text, meta_title = extract_text_from_pdf_bytes(raw)
+            if not text:
+                return {
+                    "filename": filename,
+                    "ok": False,
+                    "error": "PDF 未提取到有效文本，请检查文档内容。",
+                }
+            paper_title = meta_title or filename
+            async with semaphore:
+                result = await analyze_paper(options=options, paper_text=text, paper_title=paper_title)
+            return {
+                "filename": filename,
+                "ok": True,
+                "result": result.model_dump(),
+            }
+        except Exception as exc:
+            return {
+                "filename": filename,
+                "ok": False,
+                "error": str(exc),
+            }
+
+    items = await asyncio.gather(*(analyze_single(f) for f in files))
+    succeeded = sum(1 for item in items if item["ok"])
+    return JSONResponse(
+        content={
+            "total": len(items),
+            "succeeded": succeeded,
+            "failed": len(items) - succeeded,
+            "items": items,
+        }
     )

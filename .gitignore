@@ -29,13 +29,18 @@ venv/
 ENV/
 env/
 
-# IDE
+# IDE & tooling
 .vscode/
 .idea/
+.cursor/
+.playwright-mcp/
 *.swp
 *.swo
 *~
 .DS_Store
+
+# Project memory (local)
+memory/
 
 # Environment variables
 .env

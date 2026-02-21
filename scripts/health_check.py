@@ -74,6 +74,37 @@ def multipart_request(url: str, options: dict, file_path: Path):
         return resp.read().decode("utf-8")
 
 
+def multipart_request_multi_files(url: str, options: dict, file_paths: list[Path]):
+    boundary = f"----codex-{int(time.time() * 1000)}"
+    parts = []
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(b'Content-Disposition: form-data; name="options_json"\r\n\r\n')
+    parts.append(json.dumps(options, ensure_ascii=False).encode("utf-8"))
+    parts.append(b"\r\n")
+
+    for file_path in file_paths:
+        file_bytes = file_path.read_bytes()
+        mime = mimetypes.guess_type(file_path.name)[0] or "application/pdf"
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(
+            f'Content-Disposition: form-data; name="files"; filename="{file_path.name}"\r\n'.encode()
+        )
+        parts.append(f"Content-Type: {mime}\r\n\r\n".encode())
+        parts.append(file_bytes)
+        parts.append(b"\r\n")
+
+    parts.append(f"--{boundary}--\r\n".encode())
+    body = b"".join(parts)
+    req = urllib.request.Request(
+        url=url,
+        data=body,
+        method="POST",
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    with urllib.request.urlopen(req, timeout=180) as resp:
+        return resp.read().decode("utf-8")
+
+
 def stream_multipart_request(url: str, options: dict, file_path: Path):
     boundary = f"----codex-{int(time.time() * 1000)}"
     file_bytes = file_path.read_bytes()
@@ -198,6 +229,21 @@ def main() -> int:
         parsed = json.loads(non_stream)
         assert parsed.get("final_report")
         checks.append("paper analyze non-stream")
+
+        batch = multipart_request_multi_files(
+            f"http://127.0.0.1:{BACKEND_PORT}/v1/papers/analyze/batch",
+            {
+                "mock_mode": True,
+                "stream_mode": "parallel",
+                "parallel_limit": 2,
+                "angles": ["主题", "方法"],
+            },
+            [pdf, pdf],
+        )
+        batch_parsed = json.loads(batch)
+        assert batch_parsed.get("total") == 2
+        assert batch_parsed.get("succeeded") == 2
+        checks.append("paper analyze batch")
 
         ok = stream_multipart_request(
             f"http://127.0.0.1:{BACKEND_PORT}/v1/papers/analyze/stream",

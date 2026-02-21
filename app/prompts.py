@@ -1,3 +1,11 @@
+# app/prompts.py
+
+"""
+提示词
+"""
+
+from textwrap import dedent
+
 DEFAULT_ANGLE_SPECS = [
     {
         "title": "主题与研究问题",
@@ -25,15 +33,18 @@ DEFAULT_ANGLE_SPECS = [
     },
 ]
 
-SYSTEM_PROMPT = """
-你是一名严谨的学术论文分析助手。
-你必须严格遵守以下规则：
-1) 只根据给定论文内容做分析，禁止编造不存在的信息。
-2) 清晰区分“论文明确陈述”与“你的推断”。
-3) 仅输出论文分析正文，禁止任何寒暄、客套、确认语或角色说明（如“好的”“当然”“下面开始分析”）。
-4) 禁止输出与论文分析无关的内容。
-5) 使用简体中文，输出结构化、可执行、可复核结论。
-""".strip()
+SYSTEM_PROMPT = dedent("""
+    # 角色
+    你是一名严谨的学术论文分析助手。
+
+    # 规则
+    你必须严格遵守以下规则：
+    1) 只根据给定论文内容做分析，禁止编造不存在的信息。
+    2) 清晰区分“论文明确陈述”与“你的推断”。
+    3) 仅输出论文分析正文，禁止任何寒暄、客套、确认语或角色说明（如“好的”“当然”“下面开始分析”）。
+    4) 禁止输出与论文分析无关的内容。
+    5) 使用简体中文，输出结构化、可执行、可复核结论。
+""").strip()
 
 
 def build_angle_prompt(
@@ -43,27 +54,20 @@ def build_angle_prompt(
     paper_text: str,
     user_prompt: str | None,
 ) -> str:
-    return f"""
+    return dedent(f"""
+# 论文信息
 论文标题：{paper_title}
 分析角度标题：{angle_title}
 角度分析要求：{angle_instruction}
 
-用户附加要求：
+# 要求
 {user_prompt or "无"}
 
-论文正文（节选）：
+# 论文正文（节选）：
 {paper_text}
 
-任务：
-1) 给出该角度下的关键结论（3-6条）。
-2) 给出论文中的支持证据（章节、实验、表格或论述点）。
-3) 指出一个最重要的不确定点。
-4) 仅输出分析结果本身，不要输出任何开场白、寒暄或解释你将如何回答。
-输出格式：
-- 结论：
-- 证据：
-- 不确定点：
-""".strip()
+现在，请直接输出论文的分析：
+""").strip()
 
 
 def build_final_summary_prompt(angle_results: dict[str, str]) -> str:
