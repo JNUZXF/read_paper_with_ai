@@ -675,6 +675,8 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
   border: 1px solid var(--border-light);
   border-radius: var(--r-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .content-section-header {
   padding: 10px 14px;
@@ -682,6 +684,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 .content-section-label {
   font-size: 12px;
@@ -701,6 +704,8 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 }
 .content-section-body {
   padding: 14px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Empty state */

@@ -9,6 +9,7 @@ export default function LeftPanel({
   streamMode, onStreamModeChange,
   parallelLimit, onParallelLimitChange,
   enableReasoning, onEnableReasoningChange,
+  enableFinalReport, onEnableFinalReportChange,
   isAnalyzing,
   onStart, onClear,
   statusMsg, isError,
@@ -109,6 +110,17 @@ export default function LeftPanel({
                     type="checkbox"
                     checked={enableReasoning}
                     onChange={e => onEnableReasoningChange(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </label>
+              <label className="field" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="field-label">生成综合报告</span>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={enableFinalReport}
+                    onChange={e => onEnableFinalReportChange(e.target.checked)}
                   />
                   <span className="toggle-slider" />
                 </label>

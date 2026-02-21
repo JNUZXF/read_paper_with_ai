@@ -38,6 +38,7 @@ export default function App() {
   const [streamMode, setStreamMode] = useState('sequential')
   const [parallelLimit, setParallelLimit] = useState(3)
   const [enableReasoning, setEnableReasoning] = useState(false)
+  const [enableFinalReport, setEnableFinalReport] = useState(true)
 
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -135,6 +136,10 @@ export default function App() {
         else if (angles[evt.angle].status === 'pending') angles[evt.angle] = { status: 'streaming' }
         return { ...p, angles }
       }))
+      // Auto-switch to first angle when it starts streaming
+      if (paperId === activePaperId && activeAngle === '__final__') {
+        setActiveAngle(evt.angle)
+      }
       return
     }
     if (evt.event === 'angle_reasoning_delta') {
@@ -231,6 +236,7 @@ export default function App() {
       parallel_limit: parallelLimit,
       enable_reasoning: enableReasoning,
       reasoning_effort: 'high',
+      enable_final_report: enableFinalReport,
     }
 
     // Initialize paper states
@@ -321,6 +327,8 @@ export default function App() {
           onParallelLimitChange={setParallelLimit}
           enableReasoning={enableReasoning}
           onEnableReasoningChange={setEnableReasoning}
+          enableFinalReport={enableFinalReport}
+          onEnableFinalReportChange={setEnableFinalReport}
           isAnalyzing={isAnalyzing}
           onStart={handleStart}
           onClear={handleClear}

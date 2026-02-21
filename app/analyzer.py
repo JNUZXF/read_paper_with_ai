@@ -338,39 +338,44 @@ async def analyze_paper_stream(
                 yield item
             await task
 
-    final_prompt = build_final_summary_prompt(angle_map)
-    final_report = ""
-    yield {"event": "final_start"}
-    streamed_content = False
-    try:
-        async for ev in chat_stream_events(
-            client=client,
-            model=options.model,
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=final_prompt,
-            temperature=options.temperature,
-            max_output_tokens=options.max_output_tokens or settings.max_output_tokens,
-            reasoning=reasoning_config(options),
-        ):
-            if ev["type"] == "content":
-                final_report += ev["text"]
-                streamed_content = True
-                yield {"event": "final_delta", "delta": ev["text"]}
-            elif ev["type"] == "reasoning":
-                yield {"event": "final_reasoning_delta", "delta": ev["text"]}
-    except Exception:
-        final_report = await chat_once(
-            client=client,
-            model=options.model,
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=final_prompt,
-            temperature=options.temperature,
-            max_output_tokens=options.max_output_tokens or settings.max_output_tokens,
-            reasoning=reasoning_config(options),
-        )
-    final_report = clean_analysis_output(final_report)
-    if not streamed_content:
-        yield {"event": "final_delta", "delta": final_report}
+    if options.enable_final_report:
+        final_prompt = build_final_summary_prompt(angle_map)
+        final_report = ""
+        yield {"event": "final_start"}
+        streamed_content = False
+        try:
+            async for ev in chat_stream_events(
+                client=client,
+                model=options.model,
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=final_prompt,
+                temperature=options.temperature,
+                max_output_tokens=options.max_output_tokens or settings.max_output_tokens,
+                reasoning=reasoning_config(options),
+            ):
+                if ev["type"] == "content":
+                    final_report += ev["text"]
+                    streamed_content = True
+                    yield {"event": "final_delta", "delta": ev["text"]}
+                elif ev["type"] == "reasoning":
+                    yield {"event": "final_reasoning_delta", "delta": ev["text"]}
+        except Exception:
+            final_report = await chat_once(
+                client=client,
+                model=options.model,
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=final_prompt,
+                temperature=options.temperature,
+                max_output_tokens=options.max_output_tokens or settings.max_output_tokens,
+                reasoning=reasoning_config(options),
+            )
+        final_report = clean_analysis_output(final_report)
+        if not streamed_content:
+            yield {"event": "final_delta", "delta": final_report}
+    else:
+        final_report = ""
+        yield {"event": "final_start"}
+
     yield {
         "event": "final_done",
         "final_report": final_report,

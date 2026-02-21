@@ -38,6 +38,7 @@ class AnalyzeOptions(BaseModel):
     mock_mode: bool = False
     enable_reasoning: bool = False
     reasoning_effort: str = Field(default="high", pattern="^(low|medium|high)$")
+    enable_final_report: bool = True
 
 
 class AngleResult(BaseModel):
