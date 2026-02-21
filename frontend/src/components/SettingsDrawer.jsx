@@ -1,20 +1,46 @@
 import { useState, useEffect } from 'react'
 import { api } from '../utils/api.js'
 
+const SETTINGS_STORAGE_KEY = 'paper_lens.settings.v1'
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function saveSettings(data) {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data))
+}
+
 export default function SettingsDrawer({
   providers, catalog,
   currentProviderId,
   onClose, onProvidersChange, onSelectProvider, onStatus,
 }) {
-  const [selectedPreset, setSelectedPreset] = useState('')
-  const [selectedModel, setSelectedModel] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [enableReasoning, setEnableReasoning] = useState(false)
+  const savedSettings = loadSettings()
+  const [selectedPreset, setSelectedPreset] = useState(savedSettings.selectedPreset || '')
+  const [selectedModel, setSelectedModel] = useState(savedSettings.selectedModel || '')
+  const [baseUrl, setBaseUrl] = useState(savedSettings.baseUrl || '')
+  const [apiKey, setApiKey] = useState(savedSettings.apiKey || '')
+  const [enableReasoning, setEnableReasoning] = useState(savedSettings.enableReasoning || false)
   const [selectedSavedId, setSelectedSavedId] = useState(String(currentProviderId || ''))
   const [presetNote, setPresetNote] = useState('')
 
   const presetModels = catalog.find(c => c.provider === selectedPreset)?.models || []
+
+  // 自动保存设置到本地存储
+  useEffect(() => {
+    saveSettings({
+      selectedPreset,
+      selectedModel,
+      baseUrl,
+      apiKey,
+      enableReasoning,
+    })
+  }, [selectedPreset, selectedModel, baseUrl, apiKey, enableReasoning])
 
   useEffect(() => {
     if (catalog.length && !selectedPreset) {

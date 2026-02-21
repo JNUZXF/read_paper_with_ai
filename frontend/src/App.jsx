@@ -38,7 +38,7 @@ export default function App() {
   const [streamMode, setStreamMode] = useState('sequential')
   const [parallelLimit, setParallelLimit] = useState(3)
   const [enableReasoning, setEnableReasoning] = useState(false)
-  const [enableFinalReport, setEnableFinalReport] = useState(true)
+  const [enableFinalReport, setEnableFinalReport] = useState(false)
 
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -136,10 +136,6 @@ export default function App() {
         else if (angles[evt.angle].status === 'pending') angles[evt.angle] = { status: 'streaming' }
         return { ...p, angles }
       }))
-      // Auto-switch to first angle when it starts streaming
-      if (paperId === activePaperId && activeAngle === '__final__') {
-        setActiveAngle(evt.angle)
-      }
       return
     }
     if (evt.event === 'angle_reasoning_delta') {
@@ -239,20 +235,23 @@ export default function App() {
       enable_final_report: enableFinalReport,
     }
 
-    // Initialize paper states
+    // Initialize paper states — pre-populate all angles as pending so tabs appear immediately
+    const initialAngles = {}
+    validSpecs.forEach(s => { initialAngles[s.title] = { status: 'pending' } })
+
     const newPapers = Array.from(files).map((file, i) => ({
       id: `paper-${Date.now()}-${i}`,
       filename: file.name,
       title: file.name.replace(/\.pdf$/i, ''),
       status: 'analyzing',
-      angles: {},
+      angles: { ...initialAngles },
       error: null,
     }))
 
     contentMap.current = {}
     setPapers(newPapers)
     setActivePaperId(newPapers[0].id)
-    setActiveAngle('__final__')
+    setActiveAngle(validSpecs[0].title)
     setIsAnalyzing(true)
     setStatus(`开始分析 ${files.length} 篇论文...`)
 
@@ -340,11 +339,12 @@ export default function App() {
           papers={papers}
           activePaperId={activePaperId}
           activeAngle={activeAngle}
-          onSelectPaper={id => { setActivePaperId(id); setActiveAngle('__final__') }}
+          onSelectPaper={id => setActivePaperId(id)}
           onSelectAngle={setActiveAngle}
           getContent={getContent}
           tick={tick}
           enableReasoning={enableReasoning}
+          enableFinalReport={enableFinalReport}
         />
       </div>
     </div>

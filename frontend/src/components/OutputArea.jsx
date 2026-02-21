@@ -53,7 +53,7 @@ function StatusIcon({ status }) {
 export default function OutputArea({
   papers, activePaperId, activeAngle,
   onSelectPaper, onSelectAngle,
-  getContent, tick, enableReasoning,
+  getContent, tick, enableReasoning, enableFinalReport,
 }) {
   const activePaper = papers.find(p => p.id === activePaperId)
   const hasMultiplePapers = papers.length > 1
@@ -65,7 +65,7 @@ export default function OutputArea({
         ...Object.entries(activePaper.angles || {}).map(([name, state]) => ({
           key: name, label: name, status: state.status,
         })),
-        { key: '__final__', label: '📋 综合报告', status: activePaper.status === 'done' ? 'done' : activePaper.status },
+        ...(enableFinalReport ? [{ key: '__final__', label: '📋 综合报告', status: activePaper.status === 'done' ? 'done' : activePaper.status }] : []),
       ]
     : []
 

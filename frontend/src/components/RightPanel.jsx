@@ -3,7 +3,7 @@ import OutputArea from './OutputArea.jsx'
 export default function RightPanel({
   papers, activePaperId, activeAngle,
   onSelectPaper, onSelectAngle,
-  getContent, tick, enableReasoning,
+  getContent, tick, enableReasoning, enableFinalReport,
 }) {
   return (
     <main className="right-panel">
@@ -16,6 +16,7 @@ export default function RightPanel({
         getContent={getContent}
         tick={tick}
         enableReasoning={enableReasoning}
+        enableFinalReport={enableFinalReport}
       />
     </main>
   )
