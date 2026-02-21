@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Lens Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="tag">Paper Lens Studio</p>
+          <h1>多模型论文解析工作台</h1>
+          <p class="sub">输入任意 OpenAI 协议模型配置，上传 PDF，获得可流式追踪的多角度分析。</p>
+        </div>
+        <div class="row">
+          <button id="syncCatalogBtn" class="ghost-btn">同步目录</button>
+          <button id="refreshProvidersBtn" class="ghost-btn">刷新配置</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card stack">
+          <h2>模型配置</h2>
+          <label>预置 Provider
+            <select id="providerPreset"></select>
+          </label>
+          <label>推荐模型
+            <select id="presetModelSelect"></select>
+          </label>
+          <label>Base URL<input id="providerBaseUrl" placeholder="https://api.openai.com/v1" /></label>
+          <label>API Key<input id="providerApiKey" type="password" placeholder="sk-..." /></label>
+          <label>深度思考
+            <select id="reasoningEnabled">
+              <option value="false" selected>关闭</option>
+              <option value="true">开启</option>
+            </select>
+          </label>
+          <pre id="presetNote" class="status">选择 Provider 后会自动填充 base url，并默认推荐对应模型。</pre>
+          <div class="row">
+            <button id="saveProviderBtn" class="primary-btn">保存配置</button>
+            <button id="validateProviderBtn" class="ghost-btn">连通性检查</button>
+          </div>
+          <label>已保存配置
+            <select id="providerSelect"></select>
+          </label>
+          <div class="row">
+            <button id="useProviderBtn" class="ghost-btn">使用该配置</button>
+            <button id="deleteProviderBtn" class="danger-btn">删除配置</button>
+          </div>
+        </section>
+
+        <section class="card stack">
+          <h2>分析参数</h2>
+          <label>论文 PDF<input id="pdfFile" type="file" accept="application/pdf" /></label>
+          <label>论文标题（可选）<input id="paperTitle" placeholder="留空则自动识别" /></label>
+          <div class="stack angle-config-wrap">
+            <div class="row between">
+              <h3>分析角度配置</h3>
+              <button id="addAngleSpecBtn" class="ghost-btn" type="button">新增角度</button>
+            </div>
+            <div id="angleSpecList" class="angle-spec-list"></div>
+          </div>
+          <label>附加提示词（可选）
+            <textarea id="userPrompt" rows="3" placeholder="例如：重点评估工业落地价值"></textarea>
+          </label>
+          <div class="param-grid">
+            <label><span class="field-label">输出模式</span>
+              <select id="streamMode">
+                <option value="sequential" selected>逐角度流式</option>
+                <option value="parallel">并行流式</option>
+              </select>
+            </label>
+            <label><span class="field-label">并行上限</span>
+              <input id="parallelLimit" type="number" min="1" max="8" value="3" />
+            </label>
+            <label><span class="field-label">最大提取字数</span>
+              <input id="maxInputChars" type="number" min="2000" max="30000" step="1000" value="30000" />
+            </label>
+          </div>
+          <div class="row">
+            <button id="startAnalyzeBtn" class="primary-btn">开始流式分析</button>
+            <button id="clearOutputBtn" class="ghost-btn">清空输出</button>
+            <button id="runHealthBtn" class="ghost-btn">运行健康检查</button>
+          </div>
+          <pre id="statusBar" class="status">准备就绪</pre>
+        </section>
+      </main>
+
+      <section class="card output-wrap">
+        <h2>实时输出</h2>
+        <div class="final-wrap">
+          <h3>思考过程（Reasoning）</h3>
+          <div id="reasoningReport" class="markdown-body report-markdown"></div>
+        </div>
+        <div id="anglePanels" class="angle-panels"></div>
+        <div class="final-wrap">
+          <h3>最终融合报告</h3>
+          <div id="finalReport" class="markdown-body report-markdown"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

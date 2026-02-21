@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: paper-llm-gateway:local
+    container_name: paper-llm-gateway
+    ports:
+      - "43117:43117"
+    env_file:
+      - .env
+    environment:
+      APP_PORT: 43117
+      APP_RELOAD: "false"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
