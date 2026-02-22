@@ -6,8 +6,6 @@
 - **多角度分析**：上传 PDF 后按多个可自定义角度分析，返回角度结果与最终融合报告
 - **流式输出**：SSE 实时流式展示，支持多篇论文并行分析
 
-> 详细前端使用文档：[docs/frontend.md](docs/frontend.md)
-
 ## 📋 目录
 
 - [界面预览](#界面预览)
@@ -67,6 +65,9 @@
 - 🔒 **环境变量管理**：安全的配置管理
 - 📊 **SQLite 存储**：轻量级数据持久化
 - 🌐 **CORS 支持**：跨域请求支持
+
+### 商业版本
+基于本功能我们开发了智能体版本，支持通过上传论文和对话撰写完整的综述性论文，支持构建属于自己的知识库助理，让agent管理你的知识。链接：https://ga.metaagenthub.com/
 
 ## 🚀 快速开始
 
@@ -703,7 +704,6 @@ CATALOG_SYNC_INTERVAL_SECONDS=21600  # 6 小时
 ## 🚧 可扩展点
 
 - ✅ 增加 `stream=true` 支持，前端实时展示分析进度（已实现）
-- 🔄 将 PDF 全文切块并做检索增强（RAG）提升长论文稳定性
 - 🔄 支持模型路由策略（成本优先/质量优先）和调用审计日志
 - 🔄 添加用户认证和权限管理
 - 🔄 添加分析结果导出功能（PDF、Markdown 等）
@@ -711,16 +711,5 @@ CATALOG_SYNC_INTERVAL_SECONDS=21600  # 6 小时
 ## 📄 许可证
 
 本项目采用 MIT 许可证。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📮 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- GitHub Issues: [https://github.com/JNUZXF/read_paper_with_ai/issues](https://github.com/JNUZXF/read_paper_with_ai/issues)
-
----
 
 **注意**：本项目仅供学习和研究使用。使用第三方 API 服务时，请遵守相关服务商的使用条款和费率政策。

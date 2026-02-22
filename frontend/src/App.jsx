@@ -23,6 +23,26 @@ function persist(patch) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadPersisted(), ...patch }))
 }
 
+// ── Session persistence (analysis results, 24h TTL) ──
+const SESSION_KEY = 'paper_lens_session.v1'
+const SESSION_TTL = 24 * 60 * 60 * 1000
+
+function saveSession(papers, contentMap) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ papers, contentMap, savedAt: Date.now() }))
+  } catch {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (!data.savedAt || Date.now() - data.savedAt > SESSION_TTL) return null
+    return data
+  } catch { return null }
+}
+
 export default function App() {
   const [showSettings, setShowSettings] = useState(false)
 
@@ -57,6 +77,9 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const tickPending = useRef(false)
 
+  // Abort controller for cancel support
+  const abortControllerRef = useRef(null)
+
   function scheduleTick() {
     if (tickPending.current) return
     tickPending.current = true
@@ -86,6 +109,42 @@ export default function App() {
       setCatalog(data.providers || [])
     }).catch(() => {})
   }, [])
+
+  // F1: Restore previous session on mount
+  useEffect(() => {
+    const session = loadSession()
+    if (session?.papers?.length) {
+      const normalized = session.papers.map(p => ({
+        ...p,
+        status: p.status === 'analyzing' ? 'error' : p.status,
+        error: p.status === 'analyzing' ? '会话中断，请重新分析' : p.error,
+      }))
+      setPapers(normalized)
+      contentMap.current = session.contentMap || {}
+      setActivePaperId(normalized[0].id)
+      const firstAngle = Object.keys(normalized[0].angles || {})[0]
+      if (firstAngle) setActiveAngle(firstAngle)
+      setTick(t => t + 1)
+      setStatus(`已恢复上次会话 (${normalized.length} 篇论文)`)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // F1: Save session whenever analysis completes or papers update post-analysis
+  useEffect(() => {
+    if (!isAnalyzing && papers.some(p => p.status === 'done' || p.status === 'error')) {
+      saveSession(papers, contentMap.current)
+    }
+  }, [isAnalyzing, papers])
+
+  // P5: Dynamic batch progress status
+  useEffect(() => {
+    if (!isAnalyzing || papers.length <= 1) return
+    const totalAngles = papers.reduce((n, p) => n + Object.keys(p.angles || {}).length, 0)
+    const doneAngles = papers.reduce((n, p) =>
+      n + Object.values(p.angles || {}).filter(a => a.status === 'done' || a.status === 'error').length, 0)
+    const donePapers = papers.filter(p => p.status === 'done' || p.status === 'error').length
+    setStatusMsg(`并行分析中：${donePapers}/${papers.length} 篇完成，共 ${doneAngles}/${totalAngles} 个角度`)
+  }, [papers, isAnalyzing])
 
   // Persist settings
   useEffect(() => { persist({ angleSpecs }) }, [angleSpecs])
@@ -128,8 +187,12 @@ export default function App() {
       setPapers(ps => ps.map(p => {
         if (p.id !== paperId) return p
         const angles = { ...p.angles }
-        if (!angles[evt.angle]) angles[evt.angle] = { status: 'streaming' }
-        else if (angles[evt.angle].status === 'pending') angles[evt.angle] = { status: 'streaming' }
+        if (!angles[evt.angle]) {
+          // U5: record start time on first delta
+          angles[evt.angle] = { status: 'streaming', startedAt: Date.now() }
+        } else if (angles[evt.angle].status === 'pending') {
+          angles[evt.angle] = { ...angles[evt.angle], status: 'streaming', startedAt: Date.now() }
+        }
         return { ...p, angles }
       }))
       return
@@ -142,7 +205,8 @@ export default function App() {
       setPapers(ps => ps.map(p => {
         if (p.id !== paperId) return p
         const angles = { ...p.angles }
-        angles[evt.angle] = { status: 'done' }
+        // U5: record end time, preserve startedAt
+        angles[evt.angle] = { ...angles[evt.angle], status: 'done', endedAt: Date.now() }
         return { ...p, angles }
       }))
       return
@@ -166,18 +230,20 @@ export default function App() {
       return
     }
     if (evt.event === 'final_done') {
-      setPapers(ps => ps.map(p => p.id === paperId ? { ...p, status: 'done' } : p))
+      // U5: record paper end time
+      setPapers(ps => ps.map(p => p.id === paperId ? { ...p, status: 'done', endedAt: Date.now() } : p))
       setStatus(`分析完成 ✓ 处理字符数: ${evt.text_char_count}`)
       return
     }
   }
 
-  async function streamSinglePaper(paperId, file, options) {
+  async function streamSinglePaper(paperId, file, options, signal) {
     const form = new FormData()
     form.append('options_json', JSON.stringify(options))
     form.append('file', file)
 
-    const resp = await fetch('/v1/papers/analyze/stream', { method: 'POST', body: form })
+    // F2: pass signal to fetch for abort support
+    const resp = await fetch('/v1/papers/analyze/stream', { method: 'POST', body: form, signal })
     if (!resp.ok || !resp.body) throw new Error(await resp.text())
 
     const reader = resp.body.getReader()
@@ -247,35 +313,60 @@ export default function App() {
     }))
 
     contentMap.current = {}
+    localStorage.removeItem(SESSION_KEY)
     setPapers(newPapers)
     setActivePaperId(newPapers[0].id)
     setActiveAngle(validSpecs[0].title)
     setIsAnalyzing(true)
     setStatus(`开始分析 ${files.length} 篇论文...`)
 
+    // F2: create AbortController for this analysis run
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       if (files.length === 1) {
-        await streamSinglePaper(newPapers[0].id, files[0], options)
+        await streamSinglePaper(newPapers[0].id, files[0], options, controller.signal)
       } else {
         // Multiple papers: parallel streams
         setStatus(`并行分析 ${files.length} 篇论文中...`)
         await Promise.all(
           newPapers.map((paper, i) =>
-            streamSinglePaper(paper.id, files[i], options).catch(e => {
+            streamSinglePaper(paper.id, files[i], options, controller.signal).catch(e => {
               setPapers(ps => ps.map(p =>
-                p.id === paper.id ? { ...p, status: 'error', error: e.message } : p
+                p.id === paper.id
+                  ? { ...p, status: 'error', error: e.name === 'AbortError' ? '已取消' : e.message }
+                  : p
               ))
             })
           )
         )
-        const doneCount = newPapers.length
-        setStatus(`${doneCount} 篇论文分析完成 ✓`)
+        if (!controller.signal.aborted) {
+          setStatus(`${newPapers.length} 篇论文分析完成 ✓`)
+        }
       }
     } catch (e) {
-      setStatus(e.message, true)
+      if (e.name === 'AbortError') {
+        setStatus('分析已取消')
+        setPapers(ps => ps.map(p =>
+          p.status === 'analyzing' ? { ...p, status: 'error', error: '已取消' } : p
+        ))
+      } else {
+        setStatus(e.message, true)
+      }
     } finally {
       setIsAnalyzing(false)
+      abortControllerRef.current = null
     }
+  }
+
+  // F2: Cancel ongoing analysis
+  function handleCancel() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setStatus('分析已取消')
   }
 
   function handleClear() {
@@ -285,6 +376,7 @@ export default function App() {
     setTick(0)
     setStatus('输出已清空，可重新上传论文开始分析')
     setIsError(false)
+    localStorage.removeItem(SESSION_KEY)
   }
 
   return (
@@ -325,6 +417,7 @@ export default function App() {
           onEnableFinalReportChange={setEnableFinalReport}
           isAnalyzing={isAnalyzing}
           onStart={handleStart}
+          onCancel={handleCancel}
           onClear={handleClear}
           statusMsg={statusMsg}
           isError={isError}

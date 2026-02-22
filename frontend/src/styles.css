@@ -390,6 +390,16 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
   background: var(--brand-light);
 }
 
+.btn-cancel {
+  background: rgba(201, 92, 92, 0.08);
+  border-color: rgba(201, 92, 92, 0.3);
+  color: var(--error);
+}
+.btn-cancel:hover {
+  background: rgba(201, 92, 92, 0.18);
+  border-color: rgba(201, 92, 92, 0.5);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;
@@ -659,6 +669,13 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 .angle-tab.streaming .angle-tab-dot { opacity: 1; background: var(--brand); animation: pulse 1s ease-in-out infinite; }
 .angle-tab.error .angle-tab-dot { opacity: 1; background: var(--error); }
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.angle-tab-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 2px;
+  opacity: 0.75;
+  font-weight: 400;
+}
 
 /* Content area */
 .content-area {

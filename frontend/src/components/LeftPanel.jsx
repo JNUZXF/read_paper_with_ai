@@ -11,7 +11,7 @@ export default function LeftPanel({
   enableReasoning, onEnableReasoningChange,
   enableFinalReport, onEnableFinalReportChange,
   isAnalyzing,
-  onStart, onClear,
+  onStart, onCancel, onClear,
   statusMsg, isError,
 }) {
   const [files, setFiles] = useState([])
@@ -145,9 +145,15 @@ export default function LeftPanel({
           >
             {isAnalyzing ? '⟳ 分析中...' : `🚀 开始分析${files.length > 1 ? ` (${files.length} 篇)` : ''}`}
           </button>
-          <button className="btn btn-outline" onClick={onClear} disabled={isAnalyzing}>
-            清空
-          </button>
+          {isAnalyzing ? (
+            <button className="btn btn-cancel" onClick={onCancel}>
+              ✕ 取消
+            </button>
+          ) : (
+            <button className="btn btn-outline" onClick={onClear}>
+              清空
+            </button>
+          )}
         </div>
       </div>
     </aside>

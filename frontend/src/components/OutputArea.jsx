@@ -6,17 +6,23 @@ import { api } from '../utils/api.js'
 function StreamContent({ contentKey, getContent, tick }) {
   const elRef = useRef(null)
   const prevKey = useRef(null)
+  const prevLen = useRef(0)
 
+  // P3: dependency array prevents re-running on every parent render;
+  //     length check skips expensive markdown re-parse when content unchanged
   useEffect(() => {
     if (!elRef.current) return
     const raw = getContent(contentKey)
     if (raw) {
+      if (prevKey.current === contentKey && raw.length === prevLen.current) return
+      prevLen.current = raw.length
       elRef.current.innerHTML = renderMarkdown(cleanText(raw))
     } else if (prevKey.current !== contentKey) {
       elRef.current.innerHTML = ''
+      prevLen.current = 0
     }
     prevKey.current = contentKey
-  })
+  }, [contentKey, tick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div className="md" ref={elRef} />
 }
@@ -128,6 +134,7 @@ export default function OutputArea({
         ...(enableReasoning ? [{ key: '__reasoning__', label: '💭 思考', status: 'done' }] : []),
         ...Object.entries(activePaper.angles || {}).map(([name, state]) => ({
           key: name, label: name, status: state.status,
+          startedAt: state.startedAt, endedAt: state.endedAt,
         })),
         ...(enableFinalReport ? [{ key: '__final__', label: '📋 综合报告', status: activePaper.status === 'done' ? 'done' : activePaper.status }] : []),
       ]
@@ -224,6 +231,11 @@ export default function OutputArea({
               >
                 <span className="angle-tab-dot" />
                 <span>{tab.label}</span>
+                {tab.status === 'done' && tab.startedAt && tab.endedAt && (
+                  <span className="angle-tab-time">
+                    {Math.round((tab.endedAt - tab.startedAt) / 1000)}s
+                  </span>
+                )}
               </button>
             ))
           )}
