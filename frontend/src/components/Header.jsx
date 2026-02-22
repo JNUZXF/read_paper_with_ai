@@ -1,6 +1,4 @@
-export default function Header({ settingsOpen, onSettingsClick, providers, currentProviderId, onSyncCatalog, onHealthCheck }) {
-  const currentProvider = providers?.find(p => p.id === currentProviderId)
-
+export default function Header({ settingsOpen, onSettingsClick, currentConfig, onSyncCatalog, onHealthCheck }) {
   return (
     <header className="header">
       <button
@@ -17,10 +15,10 @@ export default function Header({ settingsOpen, onSettingsClick, providers, curre
         <span className="header-logo-sub">多模型论文解析</span>
       </div>
 
-      {currentProvider && (
+      {currentConfig && currentConfig.model && (
         <div className="provider-badge">
           <span>🤖</span>
-          <span>{currentProvider.name}</span>
+          <span>{currentConfig.model}</span>
         </div>
       )}
 

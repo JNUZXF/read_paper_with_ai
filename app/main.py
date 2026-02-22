@@ -1,4 +1,8 @@
 import json
+import platform
+import re
+import subprocess
+from datetime import datetime
 from pathlib import Path
 import asyncio
 
@@ -24,8 +28,13 @@ from app.provider_store import (
 )
 from app.schemas import (
     AnalyzeOptions,
+    AngleExport,
+    BatchExportDocxRequest,
+    ExportDocxRequest,
+    ExportDocxResponse,
     ModelConnectionRequest,
     ModelConnectionResponse,
+    PaperExport,
     ProviderConfigCreate,
     ProviderConfigOut,
     ProviderConfigUpdate,
@@ -311,4 +320,75 @@ async def analyze_paper_batch_endpoint(
             "failed": len(items) - succeeded,
             "items": items,
         }
+    )
+
+
+EXPORTS_DIR = Path("exports")
+
+
+@app.post("/v1/papers/export/docx", response_model=ExportDocxResponse)
+async def export_paper_docx(request: ExportDocxRequest):
+    """Convert markdown analysis results to a Word document and save locally."""
+    from app.docx_exporter import build_docx
+
+    EXPORTS_DIR.mkdir(exist_ok=True)
+
+    # Build a filesystem-safe filename from the paper title
+    safe_title = re.sub(r'[^\w\u4e00-\u9fff\-_. ]', '_', request.paper_title).strip()[:60]
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"{safe_title}_{timestamp}.docx"
+    file_path = EXPORTS_DIR / filename
+
+    doc = build_docx(
+        paper_title=request.paper_title,
+        angles=[a.model_dump() for a in request.angles],
+        final_report=request.final_report,
+    )
+    doc.save(str(file_path))
+
+    return ExportDocxResponse(
+        file_path=str(file_path.resolve()),
+        filename=filename,
+        download_url=f"/v1/papers/download/{filename}",
+    )
+
+
+@app.post("/v1/papers/export/batch-docx", response_model=ExportDocxResponse)
+async def export_papers_batch_docx(request: BatchExportDocxRequest):
+    """Merge analyses of multiple papers into a single Word document."""
+    from app.docx_exporter import build_batch_docx
+
+    if not request.papers:
+        raise HTTPException(status_code=400, detail="至少需要一篇论文的数据")
+
+    EXPORTS_DIR.mkdir(exist_ok=True)
+
+    paper_count = len(request.papers)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"多篇论文分析_{paper_count}篇_{timestamp}.docx"
+    file_path = EXPORTS_DIR / filename
+
+    doc = build_batch_docx([p.model_dump() for p in request.papers])
+    doc.save(str(file_path))
+
+    return ExportDocxResponse(
+        file_path=str(file_path.resolve()),
+        filename=filename,
+        download_url=f"/v1/papers/download/{filename}",
+    )
+
+
+@app.get("/v1/papers/download/{filename}")
+async def download_paper_docx(filename: str):
+    """Serve a previously exported Word document for browser download."""
+    # Prevent path traversal
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="无效的文件名")
+    file_path = EXPORTS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文件不存在，请重新导出")
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=filename,
     )

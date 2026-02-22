@@ -81,3 +81,30 @@ class ProviderConfigOut(BaseModel):
     is_default: bool
     created_at: str
     updated_at: str
+
+
+class AngleExport(BaseModel):
+    title: str
+    content: str
+
+
+class ExportDocxRequest(BaseModel):
+    paper_title: str
+    angles: list[AngleExport]
+    final_report: str | None = None
+
+
+class PaperExport(BaseModel):
+    paper_title: str
+    angles: list[AngleExport]
+    final_report: str | None = None
+
+
+class BatchExportDocxRequest(BaseModel):
+    papers: list[PaperExport]
+
+
+class ExportDocxResponse(BaseModel):
+    file_path: str
+    filename: str
+    download_url: str

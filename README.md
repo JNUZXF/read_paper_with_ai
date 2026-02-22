@@ -166,6 +166,9 @@ npm run build   # 输出至 ../web/
 
 # 停止容器
 ./scripts/docker_down.sh
+
+# docker命令
+docker compose up -d --build
 ```
 
 容器对外端口：`http://127.0.0.1:43117`

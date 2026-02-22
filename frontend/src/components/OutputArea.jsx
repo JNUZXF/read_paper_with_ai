@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { renderMarkdown, cleanText } from '../utils/markdown.js'
+import { api } from '../utils/api.js'
 
 /* ── Single angle/section content renderer ── */
 function StreamContent({ contentKey, getContent, tick }) {
@@ -58,6 +59,69 @@ export default function OutputArea({
   const activePaper = papers.find(p => p.id === activePaperId)
   const hasMultiplePapers = papers.length > 1
 
+  // Per-paper export state (resets on paper switch)
+  const [exportState, setExportState] = useState({ status: 'idle', filePath: '', filename: '', downloadUrl: '', error: '' })
+  // Batch export state (persists across paper switches)
+  const [batchExportState, setBatchExportState] = useState({ status: 'idle', filename: '', downloadUrl: '', error: '' })
+
+  // Reset single-paper export state when switching papers
+  useEffect(() => {
+    setExportState({ status: 'idle', filePath: '', filename: '', downloadUrl: '', error: '' })
+  }, [activePaperId])
+
+  function _triggerDownload(url, filename) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  async function handleExport() {
+    if (!activePaper || activePaper.status !== 'done') return
+    setExportState({ status: 'loading', filePath: '', filename: '', downloadUrl: '', error: '' })
+    try {
+      const angles = Object.keys(activePaper.angles)
+        .map(name => ({ title: name, content: getContent(`${activePaperId}:${name}`) }))
+        .filter(a => a.content.trim())
+      const finalReport = enableFinalReport ? (getContent(`${activePaperId}:final`) || null) : null
+      const result = await api.post('/v1/papers/export/docx', {
+        paper_title: activePaper.title,
+        angles,
+        final_report: finalReport,
+      })
+      _triggerDownload(result.download_url, result.filename)
+      setExportState({ status: 'done', filePath: result.file_path, filename: result.filename, downloadUrl: result.download_url, error: '' })
+    } catch (e) {
+      setExportState({ status: 'idle', filePath: '', filename: '', downloadUrl: '', error: e.message })
+    }
+  }
+
+  async function handleBatchExport() {
+    setBatchExportState({ status: 'loading', filename: '', downloadUrl: '', error: '' })
+    try {
+      const papersPayload = papers
+        .filter(p => p.status === 'done' || Object.values(p.angles || {}).some(a => a.status === 'done'))
+        .map(p => ({
+          paper_title: p.title,
+          angles: Object.keys(p.angles || {})
+            .map(name => ({ title: name, content: getContent(`${p.id}:${name}`) }))
+            .filter(a => a.content.trim()),
+          final_report: enableFinalReport ? (getContent(`${p.id}:final`) || null) : null,
+        }))
+        .filter(p => p.angles.length > 0)
+
+      if (!papersPayload.length) throw new Error('暂无可导出的分析内容')
+
+      const result = await api.post('/v1/papers/export/batch-docx', { papers: papersPayload })
+      _triggerDownload(result.download_url, result.filename)
+      setBatchExportState({ status: 'done', filename: result.filename, downloadUrl: result.download_url, error: '' })
+    } catch (e) {
+      setBatchExportState({ status: 'idle', filename: '', downloadUrl: '', error: e.message })
+    }
+  }
+
   // Determine angle tabs for active paper
   const angleTabs = activePaper
     ? [
@@ -87,20 +151,57 @@ export default function OutputArea({
     <div className="output-area">
       {/* Paper tabs — only shown when multiple papers */}
       {hasMultiplePapers && (
-        <div className="paper-tab-bar">
-          {papers.map(p => (
-            <button
-              key={p.id}
-              className={`paper-tab${p.id === activePaperId ? ' active' : ''}`}
-              onClick={() => onSelectPaper(p.id)}
-            >
-              <StatusIcon status={p.status} />
-              <span className="paper-tab-name" title={p.filename}>
-                {p.title !== p.filename ? p.title : p.filename.replace(/\.pdf$/i, '')}
+        <>
+          <div className="paper-tab-bar">
+            {papers.map(p => (
+              <button
+                key={p.id}
+                className={`paper-tab${p.id === activePaperId ? ' active' : ''}`}
+                onClick={() => onSelectPaper(p.id)}
+              >
+                <StatusIcon status={p.status} />
+                <span className="paper-tab-name" title={p.filename}>
+                  {p.title !== p.filename ? p.title : p.filename.replace(/\.pdf$/i, '')}
+                </span>
+              </button>
+            ))}
+            {/* Batch export button — shown when at least one paper has content */}
+            {papers.some(p => p.status === 'done') && (
+              <button
+                className="export-docx-btn export-batch-btn"
+                onClick={handleBatchExport}
+                disabled={batchExportState.status === 'loading'}
+                title={`将全部 ${papers.length} 篇论文的分析汇总导出为一个 Word 文档`}
+              >
+                {batchExportState.status === 'loading'
+                  ? '⏳ 汇总中…'
+                  : `📥 导出全部 ${papers.length} 篇`}
+              </button>
+            )}
+          </div>
+          {/* Batch export result banner */}
+          {batchExportState.status === 'done' && (
+            <div className="export-banner">
+              <span className="export-banner-icon">✓</span>
+              <span className="export-banner-path" title={batchExportState.filename}>
+                已下载：{batchExportState.filename}
               </span>
-            </button>
-          ))}
-        </div>
+              <a
+                className="export-banner-btn"
+                href={batchExportState.downloadUrl}
+                download={batchExportState.filename}
+                title="重新下载"
+              >
+                重新下载
+              </a>
+            </div>
+          )}
+          {batchExportState.error && (
+            <div className="export-banner export-banner-error">
+              <span>✕ 批量导出失败：{batchExportState.error}</span>
+            </div>
+          )}
+        </>
       )}
 
       {/* Angle tabs */}
@@ -126,6 +227,40 @@ export default function OutputArea({
               </button>
             ))
           )}
+          {/* Export button — only when analysis is fully done */}
+          {activePaper.status === 'done' && (
+            <button
+              className="export-docx-btn"
+              onClick={handleExport}
+              disabled={exportState.status === 'loading'}
+              title="将全部分析角度导出为 Word 文档"
+            >
+              {exportState.status === 'loading' ? '⏳ 导出中…' : '📥 导出 Word'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Export result banner */}
+      {exportState.status === 'done' && (
+        <div className="export-banner">
+          <span className="export-banner-icon">✓</span>
+          <span className="export-banner-path" title={exportState.filePath}>
+            已下载：{exportState.filename}
+          </span>
+          <a
+            className="export-banner-btn"
+            href={exportState.downloadUrl}
+            download={exportState.filename}
+            title="重新下载"
+          >
+            重新下载
+          </a>
+        </div>
+      )}
+      {exportState.error && (
+        <div className="export-banner export-banner-error">
+          <span>✕ 导出失败：{exportState.error}</span>
         </div>
       )}
 

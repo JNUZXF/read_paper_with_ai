@@ -26,10 +26,14 @@ function persist(patch) {
 export default function App() {
   const [showSettings, setShowSettings] = useState(false)
 
-  // Provider state
-  const [providers, setProviders] = useState([])
+  // Provider catalog (for preset selection)
   const [catalog, setCatalog] = useState([])
-  const [currentProviderId, setCurrentProviderId] = useState(() => loadPersisted().currentProviderId || null)
+  
+  // Current configuration (not persisted to database)
+  const [currentConfig, setCurrentConfig] = useState(() => {
+    const saved = loadPersisted()
+    return saved.currentConfig || null
+  })
 
   // Analysis config
   const [angleSpecs, setAngleSpecs] = useState(() => loadPersisted().angleSpecs || DEFAULT_ANGLES)
@@ -78,16 +82,6 @@ export default function App() {
 
   // Load initial data
   useEffect(() => {
-    api.get('/v1/providers').then(data => {
-      setProviders(data)
-      const saved = loadPersisted().currentProviderId
-      if (saved && data.find(p => p.id === saved)) {
-        setCurrentProviderId(saved)
-      } else if (data.length) {
-        setCurrentProviderId(data[0].id)
-      }
-    }).catch(e => setStatus(e.message, true))
-
     api.get('/v1/catalog/providers').then(data => {
       setCatalog(data.providers || [])
     }).catch(() => {})
@@ -95,10 +89,12 @@ export default function App() {
 
   // Persist settings
   useEffect(() => { persist({ angleSpecs }) }, [angleSpecs])
-  useEffect(() => { if (currentProviderId) persist({ currentProviderId }) }, [currentProviderId])
+  useEffect(() => { if (currentConfig) persist({ currentConfig }) }, [currentConfig])
 
-  function handleSelectProvider(id) {
-    setCurrentProviderId(id)
+  function handleApplyConfig(config) {
+    setCurrentConfig(config)
+    // 同步 enableReasoning 到分析参数
+    setEnableReasoning(config.enableReasoning || false)
   }
 
   async function handleSyncCatalog() {
@@ -208,8 +204,8 @@ export default function App() {
   }
 
   async function handleStart(files) {
-    if (!currentProviderId) {
-      setStatus('请先点击左上角 ⚙ 配置模型 Provider', true)
+    if (!currentConfig || !currentConfig.baseUrl || !currentConfig.apiKey || !currentConfig.model) {
+      setStatus('请先点击左上角 ⚙ 配置模型（Base URL、API Key 和模型）', true)
       return
     }
     if (!files?.length) {
@@ -224,7 +220,9 @@ export default function App() {
     }
 
     const options = {
-      provider_id: currentProviderId,
+      api_key: currentConfig.apiKey,
+      base_url: currentConfig.baseUrl,
+      model: currentConfig.model,
       angle_specs: validSpecs,
       user_prompt: userPrompt.trim() || null,
       max_input_chars: Math.max(2000, Math.min(30000, maxInputChars)),
@@ -294,20 +292,17 @@ export default function App() {
       <Header
         settingsOpen={showSettings}
         onSettingsClick={() => setShowSettings(s => !s)}
-        providers={providers}
-        currentProviderId={currentProviderId}
+        currentConfig={currentConfig}
         onSyncCatalog={handleSyncCatalog}
         onHealthCheck={handleHealthCheck}
       />
 
       {showSettings && (
         <SettingsDrawer
-          providers={providers}
           catalog={catalog}
-          currentProviderId={currentProviderId}
+          currentConfig={currentConfig}
           onClose={() => setShowSettings(false)}
-          onProvidersChange={setProviders}
-          onSelectProvider={handleSelectProvider}
+          onApplyConfig={handleApplyConfig}
           onStatus={setStatus}
         />
       )}

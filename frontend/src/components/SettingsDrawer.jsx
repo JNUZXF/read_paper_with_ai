@@ -16,17 +16,16 @@ function saveSettings(data) {
 }
 
 export default function SettingsDrawer({
-  providers, catalog,
-  currentProviderId,
-  onClose, onProvidersChange, onSelectProvider, onStatus,
+  catalog,
+  currentConfig,
+  onClose, onApplyConfig, onStatus,
 }) {
   const savedSettings = loadSettings()
   const [selectedPreset, setSelectedPreset] = useState(savedSettings.selectedPreset || '')
   const [selectedModel, setSelectedModel] = useState(savedSettings.selectedModel || '')
-  const [baseUrl, setBaseUrl] = useState(savedSettings.baseUrl || '')
-  const [apiKey, setApiKey] = useState(savedSettings.apiKey || '')
-  const [enableReasoning, setEnableReasoning] = useState(savedSettings.enableReasoning || false)
-  const [selectedSavedId, setSelectedSavedId] = useState(String(currentProviderId || ''))
+  const [baseUrl, setBaseUrl] = useState(currentConfig?.baseUrl || savedSettings.baseUrl || '')
+  const [apiKey, setApiKey] = useState(currentConfig?.apiKey || savedSettings.apiKey || '')
+  const [enableReasoning, setEnableReasoning] = useState(currentConfig?.enableReasoning || savedSettings.enableReasoning || false)
   const [presetNote, setPresetNote] = useState('')
 
   const presetModels = catalog.find(c => c.provider === selectedPreset)?.models || []
@@ -50,10 +49,6 @@ export default function SettingsDrawer({
     }
   }, [catalog])
 
-  useEffect(() => {
-    if (currentProviderId) setSelectedSavedId(String(currentProviderId))
-  }, [currentProviderId])
-
   function applyPreset(name) {
     setSelectedPreset(name)
     const preset = catalog.find(c => c.provider === name)
@@ -66,47 +61,35 @@ export default function SettingsDrawer({
     setPresetNote(`${preset.note || ''}\n文档: ${preset.reference || '—'}`)
   }
 
-  async function handleSave() {
+  async function handleValidate() {
     if (!selectedModel || !baseUrl || !apiKey) {
       onStatus('请填写 Base URL、API Key 和选择模型', true)
       return
     }
     try {
-      const presetObj = catalog.find(c => c.provider === selectedPreset)
-      const name = presetObj ? `${presetObj.provider} · ${selectedModel}` : selectedModel
-      await api.post('/v1/providers', { name, model: selectedModel, base_url: baseUrl, api_key: apiKey, is_default: false })
-      onStatus('配置已保存')
-      const updated = await api.get('/v1/providers')
-      onProvidersChange(updated)
-    } catch (e) { onStatus(e.message, true) }
-  }
-
-  async function handleValidate() {
-    const id = Number(selectedSavedId)
-    if (!id) { onStatus('请先选择一个已保存配置', true); return }
-    try {
       onStatus('连通性检查中...')
-      await api.post(`/v1/models/validate/provider/${id}`, {})
+      // 直接使用当前配置进行验证
+      await api.post('/v1/models/validate', {
+        api_key: apiKey,
+        base_url: baseUrl,
+        model: selectedModel,
+      })
       onStatus('连通性检查成功 ✓')
     } catch (e) { onStatus(e.message, true) }
   }
 
-  async function handleDelete() {
-    const id = Number(selectedSavedId)
-    if (!id) return
-    try {
-      await api.delete(`/v1/providers/${id}`)
-      onStatus('配置已删除')
-      const updated = await api.get('/v1/providers')
-      onProvidersChange(updated)
-    } catch (e) { onStatus(e.message, true) }
-  }
-
-  function handleUse() {
-    const id = Number(selectedSavedId)
-    if (!id) return
-    onSelectProvider(id)
-    onStatus(`已切换到 Provider #${id}`)
+  function handleApply() {
+    if (!selectedModel || !baseUrl || !apiKey) {
+      onStatus('请填写 Base URL、API Key 和选择模型', true)
+      return
+    }
+    onApplyConfig({
+      baseUrl,
+      apiKey,
+      model: selectedModel,
+      enableReasoning,
+    })
+    onStatus('配置已应用 ✓')
     onClose()
   }
 
@@ -179,27 +162,8 @@ export default function SettingsDrawer({
           </div>
 
           <div className="settings-row">
-            <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={handleSave}>保存配置</button>
+            <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={handleApply}>应用当前配置</button>
             <button className="btn btn-outline btn-sm" onClick={handleValidate}>连通性检查</button>
-          </div>
-
-          <div className="settings-divider" />
-
-          {/* Saved providers */}
-          <div className="settings-section">
-            <div className="settings-section-label">已保存配置</div>
-            <select value={selectedSavedId} onChange={e => setSelectedSavedId(e.target.value)}>
-              {providers.map(p => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.name} · {p.api_key_masked}{p.is_default ? ' (默认)' : ''}
-                </option>
-              ))}
-              {providers.length === 0 && <option value="">（无保存配置）</option>}
-            </select>
-            <div className="settings-row">
-              <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={handleUse}>使用此配置</button>
-              <button className="btn btn-danger btn-sm" onClick={handleDelete}>删除</button>
-            </div>
           </div>
         </div>
       </div>

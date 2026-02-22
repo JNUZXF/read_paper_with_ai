@@ -59,6 +59,9 @@ wos_cache/
 papers/
 *.pdf
 
+# Exports (user exported DOCX)
+exports/
+
 # Docker
 .dockerignore
 
