@@ -156,15 +156,6 @@ npm run build   # 输出至 ../web/
 #### 方式二：Docker 部署
 
 ```bash
-# 构建并启动（会等待容器 healthy）
-./scripts/docker_deploy.sh
-
-# 验证核心功能（含 mock 流式）
-./scripts/docker_verify.sh
-
-# 停止容器
-./scripts/docker_down.sh
-
 # docker命令
 docker compose up -d --build
 ```
