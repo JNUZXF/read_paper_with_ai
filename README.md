@@ -81,7 +81,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone git@github.com:JNUZXF/read_paper_with_ai.git
+git clone https://github.com/JNUZXF/read_paper_with_ai.git
 cd read_paper_with_ai
 ```
 
